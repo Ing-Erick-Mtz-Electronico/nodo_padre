@@ -1,156 +1,169 @@
-//variable que indica el inicio de la esp
-#define ID_NODO ("1")
-//#define pinSensors 27
-//#define pinGSM 32
+unsigned long lastTime = millis();
 
-#include <ESP32Time.h>
+// variable que indica el inicio de la esp
+#define ID_NODO ("2")
+#define PATH ("/CSVrecoleccionNodoPadre2.txt")
+#define PATH2 ("/CopiaCSVrecoleccionNodoPadre2.txt")
+// #define pinSensors 27
+// #define pinGSM 32
+
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <Arduino_JSON.h>
 
-unsigned long lastTime = millis();
+#define SAMPLING_WINDOW 3600000    // 900000//3600000 //240000 4 minutos hora //3600000 1 hora
+#define RECEPTION_WINDOW 420000    // 7minutos //180000 //3 minutos //600000 //10 minutos ventana de recepción //600000 10 minutos
+#define TIME_OFF 180000            // 600000 // se levanta 60000 10 minutos antes de que los nodos se conecten //600000 10 minutos
+#define TIME_LIMIT_CONECTION 60000 // 600000 // se levanta 60000 10 minutos antes de que los nodos se conecten //600000 10 minutos
+#define CONECTION_SD_TIME 12000    // tiempo que chequea si la SD funciona
+#define TIME_CHECK_SESNOR 12000    // tiempo que chequea si los sensores funcionan
+#define mS_TO_uS_FACTOR 1000       // factor para pasar milis a micro segundos
+#define S_TO_mS_FACTOR 60000       // factor para pasar segundos a milisegundos segundos
+#define NODO_HIJO_TIME_DELAY 5000  // tiempo para que el nodo hijo se sincronice
 
+#define LED 32
+boolean stateLed = true;
 
-//Red tigo
-//char apn[]  = "web.colombiamovil.com.co";
-//char user[] = NULL;
-//char pass[] = NULL;
-
-#define SAMPLING_WINDOW 3600000 //240000 4 minutos hora //3600000 1 hora 
-#define RECEPTION_WINDOW 180000 //600000 //10 minutos ventana de recepción //600000 10 minutos
-#define TIME_OFF 180000//600000 // se levanta 60000 10 minutos antes de que los nodos se conecten //600000 10 minutos
-#define mS_TO_uS_FACTOR 1000 //factor para pasar milis a micro segundos
-RTC_DATA_ATTR boolean flag = false; //se indica si el reset ha sido por el mmodo deep sleep
-RTC_DATA_ATTR boolean rebootNow = false; //se indica si el reset ha sido por el mmodo deep sleep
-//usb
+// usb
 #include "usb_functions.H";
-//GSM
+// GSM
 #include "GSM_functions.H";
 
-//funciones para las mediciones
+// funciones para las mediciones
 #include "measure_functions.H";
 
-//reloj interno de la esp
-ESP32Time rtc;
+#include "tinyRTC_functions.H";
 
-//variables del deep sleep
+// variables del deep sleep
 void deepSleep();
 
-//Servidor
-// Creamos nuestra propia red -> SSID & Password
-const char* ssid = "GIDEAMSERVER";  
-const char* password = "1234567890";
+// Servidor
+//  Creamos nuestra propia red -> SSID & Password
+const char *ssid = "GIDEAMSERVER";
+const char *password = "1234567890";
 AsyncWebServer server(80);
 
-unsigned long initTimeService = 0;//marca el tiempo de inicio de los servicios
+unsigned long initTimeService = 0; // marca el tiempo de inicio de los servicios
 
-void setup() {
-  
+void setup()
+{
+
   Serial.begin(115200);
 
-  while(!Serial) {
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, stateLed);
+
+  while (!Serial)
+  {
     Serial.print("."); // Espera hasta que el puerto serial se conecte
   }
 
-//  pinMode(pinSensors,OUTPUT);
-//  pinMode(pinGSM,OUTPUT);
-//
-//  digitalWrite(pinSensors,HIGH);
-//  digitalWrite(pinGSM,HIGH);
-  
+  Serial.print("Nodo: ");
+  Serial.println(ID_NODO);
+
+  //  pinMode(pinSensors,OUTPUT);
+  //  pinMode(pinGSM,OUTPUT);
+  //
+  //  digitalWrite(pinSensors,HIGH);
+  //  digitalWrite(pinGSM,HIGH);
+
   setupUsb();
   setupMeasure();
   setupGSM();
+  setupRTC();
 
-  const char* number = "3146940325";
-  const char* numberMiguel = "3003859853";
+  const char *numberErick = "3146940325";
+  const char *numberMiguel = "3003859853";
+  const char *numberYesica = "3188015572";
   const String sms = AlertBatery();
 
-  if(sms.length()>1){
-    modem.sendSMS(number,sms.c_str());
-    delay(3000);
-    modem.sendSMS(numberMiguel,sms.c_str());
+  if (sms.length() > 1)
+  {
+    modem.sendSMS(numberErick, sms.c_str());
+    delay(1000);
+    modem.sendSMS(numberMiguel, sms.c_str());
+    delay(1000);
+    modem.sendSMS(numberYesica, sms.c_str());
   }
-  
-  
-  //configurar la hora
+
+  // configurar la hora
   String responseTime = requestTime();
-  if(responseTime.length()!=0){
+  if (responseTime.length() != 0)
+  {
     JSONVar objectRequest = JSON.parse(responseTime);
-    JSONVar timeRequest = objectRequest["unixtime"];
-    JSONVar offsetRequest = objectRequest["raw_offset"];
-    rtc.offset = long(offsetRequest);
-    rtc.setTime(long(timeRequest));
+    setTimeRTC(objectRequest);
   }
-  
-  //TOMAR MEDICIONES
-  String dataMeasurement = measurement(rtc.getTime("%FT%T"));
+
+  // TOMAR MEDICIONES
+  String dataMeasurement = measurement(getTimeRTC());
   appendFile(SD, PATH, dataMeasurement.c_str());
   appendFile(SD, PATH2, dataMeasurement.c_str());
 
-  if(rebootNow){
-    while(!((millis()-lastTime)>TIME_OFF));
-  }
-  
   // Creamos el punto de acceso
-  WiFi.softAP(ssid, password);
+  WiFi.softAP(ssid, password, 1, 0, 7);
   IPAddress ip = WiFi.softAPIP();
   IPAddress getway = ip;
-  IPAddress subnet(255,255,255,0);
+  IPAddress subnet(255, 255, 255, 0);
 
-  WiFi.softAPConfig(ip,getway,subnet);
-  
+  WiFi.softAPConfig(ip, getway, subnet);
   Serial.print("IP esp32: ");
   Serial.println(ip);
   Serial.print("Nombre de red esp32: ");
   Serial.println(ssid);
 
-  if(!WiFi.config(ip,getway,subnet)){
-   Serial.println("error DHCP"); 
-  } else {
+  if (!WiFi.config(ip, getway, subnet))
+  {
+    Serial.println("error DHCP");
+  }
+  else
+  {
     Serial.println("Conectado server DHCP");
   }
 
-  //servicios
-  #include "servicios.H";
-  
+// servicios
+#include "servicios.H";
+
   server.begin();
   Serial.println("Servidor HTTP iniciado");
-  //deep sleep
+  // deep sleep
   deepSleep();
 }
 
 void loop() {}
 
-void deepSleep(){
-
-  while(true){
-    if((millis()-initTimeService) > RECEPTION_WINDOW){
-      //APAGAR WIFI
+void deepSleep()
+{
+  long timeSpan = TIME_OFF - millis() - lastTime;
+  int delayLed = 1000;
+  long lastTimeLed = millis();
+  while (true)
+  {
+    if ((millis() - initTimeService) > (RECEPTION_WINDOW + timeSpan))
+    {
+      digitalWrite(LED,true);
+      // APAGAR WIFI
       WiFi.mode(WIFI_OFF);
-      
-      //ENVIAR INFORMACION
-      if(sendInformation()){
+
+      // ENVIAR INFORMACION
+      if (sendInformation())
+      {
         rewriteFile(SD, PATH2);
       }
-      //modo deep sleep
-      unsigned long sleepTime = SAMPLING_WINDOW - (millis() - lastTime);
-      Serial.println(sleepTime);
-      if(sleepTime <0){
-        rebootNow = false;
-        Serial.println("entrando a modo deep sleep");
-//        digitalWrite(pinSensors,LOW);
-//        digitalWrite(pinGSM,LOW);
-        esp_sleep_enable_timer_wakeup(3000 * mS_TO_uS_FACTOR);
-        esp_deep_sleep_start();
-      }
+      // apagar modulo GSM
+      modem.poweroff();
+      // modo deep sleep
       Serial.println("entrando a modo deep sleep");
-//      digitalWrite(pinSensors,LOW);
-//      digitalWrite(pinGSM,LOW);
-      rebootNow = true;
+      digitalWrite(LED,false);
+      unsigned long sleepTime = SAMPLING_WINDOW - TIME_OFF - (getMinute()*S_TO_mS_FACTOR);
       esp_sleep_enable_timer_wakeup(sleepTime * mS_TO_uS_FACTOR);
-      Serial.flush(); 
       esp_deep_sleep_start();
+    }
+
+    if ((millis() - lastTimeLed) > delayLed)
+    {
+      stateLed = !stateLed;
+      digitalWrite(LED, stateLed);
+      lastTimeLed = millis();
     }
   }
 }

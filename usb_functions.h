@@ -1,70 +1,79 @@
-//lib SPI para leer y escribir en la micro SD
+// lib SPI para leer y escribir en la micro SD
 #include <SPI.h>
 #include <SD.h>
 #include <FS.h>
-#define PATH ("/CSVrecoleccionNodoPadre1.txt")
-#define PATH2 ("/CopiaCSVrecoleccionNodoPadre1.txt")
 #define LOG ("/log.txt")
 #define CONSOLE_LOG ("/console_log.txt")
 
 char separador = ';';
 
-void consoleLog(fs::FS &fs,const char * message){
-  const char * path = CONSOLE_LOG;
+void consoleLog(fs::FS &fs, const char *message)
+{
+  const char *path = CONSOLE_LOG;
   File file = fs.open(path, FILE_APPEND);
-  
-  if(!file){
+
+  if (!file)
+  {
     Serial.println("Error abriendo archivo CONSOLE_LOG");
     return;
   }
-  if(file.print(message)){
-      Serial.println("CONSOLE_LOG appended");
-  } else {
+  if (file.print(message))
+  {
+    Serial.println("CONSOLE_LOG appended");
+  }
+  else
+  {
     Serial.println("CONSOLE_LOG failed");
   }
   file.close();
 }
 
-String leerArchivo(fs::FS &fs, const char * path){
-  
-  String payload ="";
+String leerArchivo(fs::FS &fs, const char *path)
+{
+  String payload = "";
   Serial.printf("Reading file: %s\n", path);
 
   File file = fs.open(path);
-  if(file){
-    while(file.available()){
+  if (file)
+  {
+    while (file.available())
+    {
       char ch = file.read();
       payload += ch;
     }
     file.close();
     Serial.println(" Archivo leido");
-    //Serial.println(payload);
-    return  payload;
-  } else {
+    // Serial.println(payload);
+    return payload;
+  }
+  else
+  {
     Serial.println("Error leyendo el archivo");
     return "";
-  } 
+  }
 }
 
-//check para archivo csv
-boolean checkChar(fs::FS &fs, const char * path, String headerCheck){
+// check para archivo csv
+boolean checkChar(fs::FS &fs, const char *path, String headerCheck)
+{
   File file = fs.open(path);
-  String header="";
-  if(!file){
+  String header = "";
+  if (!file)
+  {
     Serial.println("Failed to open file for reading");
     return false;
   }
 
   Serial.print("Read from file for check char: ");
-  while(file.available()){
+  while (file.available())
+  {
     char charFile = file.read();
     header += charFile;
-    if(charFile == '\n'){
+    if (charFile == '\n')
+    {
       file.close();
-      /*for(i=0;i<headerCheck.length();){
-        
-      }*/
-      if(header == headerCheck){
+      if (header == headerCheck)
+      {
         return true;
       }
       return false;
@@ -74,58 +83,72 @@ boolean checkChar(fs::FS &fs, const char * path, String headerCheck){
   return false;
 }
 
-boolean checkFile(fs::FS &fs, const char * path){
-  
+boolean checkFile(fs::FS &fs, const char *path)
+{
+
   File file = fs.open(path);
-  if(!file){
+  if (!file)
+  {
     Serial.println("El archivo buscado no existe");
     file.close();
     return false;
   }
-  
+
   Serial.printf("verificando archivo: %s\n", path);
-  if(file.available()){
+  if (file.available())
+  {
     file.close();
     return true;
   }
-   
 }
 
-void writeFile(fs::FS &fs, const char * path,const String mensaje) {
+void writeFile(fs::FS &fs, const char *path, const String mensaje)
+{
   Serial.printf("Escribiendo el archivo: %s\n", path);
 
   File file = fs.open(path, FILE_WRITE);
-  if (!file) {
+  if (!file)
+  {
     Serial.println("Error al abrir el archivo para escribirlo");
     return;
   }
-  if (file.print(mensaje)) {
+  if (file.print(mensaje))
+  {
     Serial.println("Archivo escrito");
-  } else {
+  }
+  else
+  {
     Serial.println("Error al escribir");
   }
   file.close();
 }
 
-void appendFile(fs::FS &fs, const char * path, const char * message){
+void appendFile(fs::FS &fs, const char *path, const char *message)
+{
   Serial.printf("Appending to file: %s\n", path);
 
   File file = fs.open(path, FILE_APPEND);
-  if(!file){
+  if (!file)
+  {
     Serial.println("Failed to open file for appending");
     return;
   }
-  if(file.print(message)){
-      Serial.println("Message appended");
-  } else {
+  if (file.print(message))
+  {
+    Serial.println("Message appended");
+  }
+  else
+  {
     Serial.println("Append failed");
   }
   file.close();
 }
 
-void rewriteFile(fs::FS &fs, const char * path){
+void rewriteFile(fs::FS &fs, const char *path)
+{
   File file = fs.open(path, FILE_WRITE);
-  if (!file) {
+  if (!file)
+  {
     Serial.println("Error al abrir el archivo para Borrarlo");
     return;
   }
@@ -134,55 +157,74 @@ void rewriteFile(fs::FS &fs, const char * path){
   file.close();
 }
 
-void setupUsb(){
-  
-  String init = "ID_NODO";
-         init.concat(separador);
-         init.concat("fecha");
-         init.concat(separador);
-         init.concat("temperatura_BME");
-         init.concat(separador);
-         init.concat("humedad_BME");
-         init.concat(separador);
-         init.concat("presion_BME");
-         init.concat(separador);
-         init.concat("altitud_BME");
-         init.concat(separador);
-         init.concat("humedad_HD38");
-         init.concat(separador);
-         init.concat("humedad_SOIL");
-         init.concat(separador);
-         init.concat("temperatura_SOIL");
-         init.concat(separador);
-         init.concat("conductividad_SOIL");
-         init.concat(separador);
-         init.concat("PH_SOIL");
-         init.concat(separador);
-         init.concat("nitrogeno_SOIL");
-         init.concat(separador);
-         init.concat("fosforo_SOIL");
-         init.concat(separador);
-         init.concat("potasio_SOIL");
-         init.concat(separador);
-         init.concat("nivel_bateria\n");
-         
-  Serial.println("Inicializando SD card...");
-  while(!SD.begin(5)) {
-    Serial.println("Inicialización fallida!");
-    delay(2000);
+void initFile(fs::FS &fs, const char *path, String init)
+{
+  if (checkFile(SD, path))
+  {
+    if (!checkChar(SD, path, init))
+    {
+      writeFile(SD, path, init.c_str());
+    }
   }
+  else
+  {
+    writeFile(SD, path, init.c_str());
+  }
+}
+
+void setupUsb()
+{
+
+  String init = "ID_NODO";
+  init.concat(separador);
+  init.concat("fecha");
+  init.concat(separador);
+  init.concat("temperatura_BME");
+  init.concat(separador);
+  init.concat("humedad_BME");
+  init.concat(separador);
+  init.concat("presion_BME");
+  init.concat(separador);
+  init.concat("altitud_BME");
+  init.concat(separador);
+  init.concat("humedad_HD38");
+  init.concat(separador);
+  init.concat("humedad_SOIL");
+  init.concat(separador);
+  init.concat("temperatura_SOIL");
+  init.concat(separador);
+  init.concat("conductividad_SOIL");
+  init.concat(separador);
+  init.concat("PH_SOIL");
+  init.concat(separador);
+  init.concat("nitrogeno_SOIL");
+  init.concat(separador);
+  init.concat("fosforo_SOIL");
+  init.concat(separador);
+  init.concat("potasio_SOIL");
+  init.concat(separador);
+  init.concat("nivel_bateria\n");
+
+  Serial.println("Inicializando SD card...");
+  unsigned long lastTimeUSB = millis();
+  while (!SD.begin(5))
+  {
+    if (((millis() - lastTimeUSB) > CONECTION_SD_TIME))
+    {
+      digitalWrite(LED, false);
+      unsigned long sleepTime = SAMPLING_WINDOW - (millis() - lastTime);
+      esp_sleep_enable_timer_wakeup(sleepTime * mS_TO_uS_FACTOR);
+      esp_deep_sleep_start();
+    }
+    Serial.println("Inicialización fallida!");
+    digitalWrite(LED, stateLed);
+    delay(2000);
+    stateLed = !stateLed;
+  }
+  stateLed = true;
+  digitalWrite(LED, stateLed);
   Serial.println("Inicialización lista.");
 
-//  if(!checkFile(SD, CONSOLE_LOG)){
-//    writeFile(SD, CONSOLE_LOG, String("").c_str());
-//  }
-  
-  if(checkFile(SD, PATH)){
-    if(!checkChar(SD, PATH, init)){
-      writeFile(SD, PATH, init.c_str());
-    }
-  }else{
-    writeFile(SD, PATH, init.c_str());
-  }
+  initFile(SD, PATH, init);
   Serial.println("Archivo verificado");
 }

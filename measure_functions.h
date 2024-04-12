@@ -17,12 +17,12 @@
 Adafruit_BME280 bme;
 
 String readBME280Temperature() {
-  while(!bme.begin(BME_ADDRESS));
+
   // Read temperature as Celsius (the default)
   float t = bme.readTemperature();
   // Convert temperature to Fahrenheit
   //t = 1.8 * t + 32;
-  if (isnan(t)) {    
+  if (isnan(t)) {
     Serial.println("Failed to read from BME280 sensor!");
     return "";
   }
@@ -33,7 +33,7 @@ String readBME280Temperature() {
 }
 
 String readBME280Humidity() {
-  while(!bme.begin(BME_ADDRESS));
+
   float h = bme.readHumidity();
   if (isnan(h)) {
     Serial.println("Failed to read from BME280 sensor!");
@@ -46,7 +46,7 @@ String readBME280Humidity() {
 }
 
 String readBME280Pressure() {
-  while(!bme.begin(BME_ADDRESS));
+
   float p = bme.readPressure() / 100.0F;
   if (isnan(p)) {
     Serial.println("Failed to read from BME280 sensor!");
@@ -58,9 +58,8 @@ String readBME280Pressure() {
   }
 }
 String readBME280Altitude() {
-  while(!bme.begin(BME_ADDRESS));
+
   float a = bme.readAltitude(SEALEVELPRESSURE_HPA);
-  
   if (isnan(a)) {
     Serial.println("Failed to read from BME280 sensor!");
     return "0";
@@ -93,13 +92,13 @@ String AlertBatery(){
   sensorValue = analogRead(bateryPin);
   voltaje = (sensorValue*(13.0/4096.0));
 
-  if(voltaje <= 10.0){
+  if(voltaje <= 10.8){
     String resl = "";
     resl.concat("ALERTA!!\n\nNivel de bateria nodo padre: ");
     resl+= String(voltaje);
     return  resl;
   }else{
-    return "";  
+    return "";
   }
 }
 
@@ -109,36 +108,36 @@ String soilData(){
 
   // Recoleccion de valores
   byte values[19];
-  
+
   uint16_t humidityInt,temperatureInt,conductivity,PHInt,nitro,phos,pota = 0;
   float humidity,temperature,PH = 0.0;
-  
+
   digitalWrite(RE,HIGH);
-  
+
   if(Serial2.write(allMeasure,sizeof(allMeasure))==8){
     delay(18);
     digitalWrite(RE,LOW);
     delay(12);
 
     Serial2.readBytes(values,sizeof(values));
-    
+
     humidityInt = (values[3] << 8) | values[4];
     humidity = humidityInt/10.0F;
-    
+
     temperatureInt = (values[5] << 8) | values[6];
     temperature = temperatureInt/10.0F;
 
     conductivity = (values[7] << 8) | values[8];
-    
+
     PHInt = (values[9] << 8) | values[10];
     PH = PHInt/10.0F;
-    
+
     nitro = (values[11] << 8) | values[12];
-    
+
     phos = (values[13] << 8) | values[14];
-    
+
     pota = (values[15] << 8) | values[16];
-    
+
     /*Serial.print("humedad: ");
     Serial.print(humidity);
     Serial.println();
@@ -146,11 +145,11 @@ String soilData(){
     Serial.print("temperatura: ");
     Serial.print(temperature);
     Serial.println();
-    
+
     Serial.print("conductividad: ");
     Serial.print(conductivity);
     Serial.println();
-    
+
     Serial.print("PH: ");
     Serial.print(PH);
     Serial.println();
@@ -182,15 +181,15 @@ String soilData(){
   result += String(phos);
   result.concat(separador);
   result += String(pota);
-  
+
   return result;
 }
 
 String measurement(String timeNow){
   char finalizador = '\n';
-  
+
   Serial.println("Medicion inicida");
-  
+
   String object_med = ID_NODO;
   object_med.concat(separador);
   object_med.concat(timeNow);
@@ -214,7 +213,7 @@ String measurement(String timeNow){
   object_med.concat(readBatery());
   object_med.concat(finalizador);
   Serial.println(object_med);
-  
+
   return object_med;
 }
 
@@ -222,12 +221,36 @@ void setupMeasure(){
   //Serial para el sensor SOIL
   Serial2.begin(4800, SERIAL_8N1, RXD2, TXD2);
   pinMode(RE, OUTPUT);
-  //digitalWrite(RE,HIGH);
 
   Wire.begin();  //enable I2C port.
+
+  boolean noBME = true;
+  long LastTimeBME = millis();
+  while (noBME)
+  {
+    if(!bme.begin(BME_ADDRESS))
+    {
+      if ((millis() - LastTimeBME) > TIME_CHECK_SESNOR)
+      {
+        Serial.println(millis());
+        noBME = false;
+      }
+      Serial.println("Modulo BME no conectado");
+      digitalWrite(LED,stateLed);
+      delay(300);
+      stateLed = !stateLed;
+    }else
+    {
+      noBME = false;
+    }
+
+  }
+
+  stateLed = true;
+  digitalWrite(LED,stateLed);
+
   if(!bme.begin(BME_ADDRESS)){
     Serial.println("No hay un módulo BME conectado");
-    //delay(2000);
   }else{
     Serial.println("BME conectado");
   }
