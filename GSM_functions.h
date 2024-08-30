@@ -37,7 +37,8 @@ const int PORT = 80;
 // const char UNIMAG_PATH[] = "/esp32/";
 // const int SSL_PORT = 80;
 
-const char UNIMAG_HOST[] = "34.207.125.0";
+// const char UNIMAG_HOST[] = "34.207.125.0";
+const char UNIMAG_HOST[] = "sistemasinteligentes.unimagdalena.edu.co";
 const char UNIMAG_PATH[] = "/api/nodes/storage/";
 const int SSL_PORT = 80;
 
@@ -64,6 +65,10 @@ String apn;
 String user;
 String pass;
 
+const char *numberErick = "3146940325";
+const char *numberMiguel = "3003859853";
+const char *numberYesica = "3188015572";
+
 // GSM Module RX pin to ESP32 4
 // GSM Module TX pin to ESP32 2
 #define rxPin 4
@@ -83,11 +88,11 @@ boolean connectionAPN()
 
   while (!modem.gprsConnect(apn.c_str(), user.c_str(), pass.c_str()))
   {
-    Serial.println(" conexion fail");
     if (((millis() - lastTimeApn) > TIME_LIMIT_CONECTION))
     {
       return false;
     }
+    Serial.println(" conexion fail");
     delay(1000);
   }
   Serial.println("Conectado al APN");
@@ -182,6 +187,7 @@ String requestTime()
       }
     }
   }
+  return request;
 }
 
 boolean envio(String subData)
@@ -410,13 +416,13 @@ void setupGSM()
       user = "";
       pass = "";
     }
-  }
 
-  Serial.print("status: ");
-  Serial.println(modem.getSimStatus());
-  if (modem.getSimStatus() != 3)
-  {
-    modem.simUnlock(GSM_PIN);
-    delay(1000);
+    Serial.print("status: ");
+    Serial.println(modem.getSimStatus());
+    if (modem.getSimStatus() != 3)
+    {
+      modem.simUnlock(GSM_PIN);
+      delay(1000);
+    }
   }
 }

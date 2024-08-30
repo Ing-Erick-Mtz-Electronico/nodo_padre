@@ -1,9 +1,9 @@
 unsigned long lastTime = millis();
 
 // variable que indica el inicio de la esp
-#define ID_NODO ("2")
-#define PATH ("/CSVrecoleccionNodoPadre2.txt")
-#define PATH2 ("/CopiaCSVrecoleccionNodoPadre2.txt")
+#define ID_NODO ("1")
+#define PATH ("/CSVrecoleccionNodoPadre1.txt")
+#define PATH2 ("/CopiaCSVrecoleccionNodoPadre1.txt")
 // #define pinSensors 27
 // #define pinGSM 32
 
@@ -13,16 +13,22 @@ unsigned long lastTime = millis();
 
 #define SAMPLING_WINDOW 3600000    // 900000//3600000 //240000 4 minutos hora //3600000 1 hora
 #define RECEPTION_WINDOW 420000    // 7minutos //180000 //3 minutos //600000 //10 minutos ventana de recepción //600000 10 minutos
-#define TIME_OFF 180000            // 600000 // se levanta 60000 10 minutos antes de que los nodos se conecten //600000 10 minutos
-#define TIME_LIMIT_CONECTION 60000 // 600000 // se levanta 60000 10 minutos antes de que los nodos se conecten //600000 10 minutos
+#define TIME_OFF 180000            // se levanta 3 minutos antes de que los nodos se conecten //600000 10 minutos
+#define TIME_LIMIT_CONECTION 60000 // tiempo de espera cuando no se conecta a internet //600000 10 minutos
 #define CONECTION_SD_TIME 12000    // tiempo que chequea si la SD funciona
 #define TIME_CHECK_SESNOR 12000    // tiempo que chequea si los sensores funcionan
 #define mS_TO_uS_FACTOR 1000       // factor para pasar milis a micro segundos
 #define S_TO_mS_FACTOR 60000       // factor para pasar segundos a milisegundos segundos
 #define NODO_HIJO_TIME_DELAY 5000  // tiempo para que el nodo hijo se sincronice
+#define delayLed 1000
 
 #define LED 32
 boolean stateLed = true;
+
+#define PIN_CONTROL 25
+
+void serverLoop();
+void sleepEsp(unsigned long sleepTime);
 
 // usb
 #include "usb_functions.H";
@@ -34,10 +40,6 @@ boolean stateLed = true;
 
 #include "tinyRTC_functions.H";
 
-// variables del deep sleep
-void deepSleep();
-
-// Servidor
 //  Creamos nuestra propia red -> SSID & Password
 const char *ssid = "GIDEAMSERVER";
 const char *password = "1234567890";
@@ -52,6 +54,9 @@ void setup()
 
   pinMode(LED, OUTPUT);
   digitalWrite(LED, stateLed);
+
+  pinMode(PIN_CONTROL,OUTPUT);
+  digitalWrite(PIN_CONTROL,stateLed);
 
   while (!Serial)
   {
@@ -72,9 +77,6 @@ void setup()
   setupGSM();
   setupRTC();
 
-  const char *numberErick = "3146940325";
-  const char *numberMiguel = "3003859853";
-  const char *numberYesica = "3188015572";
   const String sms = AlertBatery();
 
   if (sms.length() > 1)
@@ -92,6 +94,7 @@ void setup()
   {
     JSONVar objectRequest = JSON.parse(responseTime);
     setTimeRTC(objectRequest);
+    responseTime = "";
   }
 
   // TOMAR MEDICIONES
@@ -120,27 +123,31 @@ void setup()
     Serial.println("Conectado server DHCP");
   }
 
-// servicios
-#include "servicios.H";
+  // servicios
+  #include "servicios.H";
 
   server.begin();
   Serial.println("Servidor HTTP iniciado");
-  // deep sleep
-  deepSleep();
+
+  // loop
+  serverLoop();
 }
 
 void loop() {}
 
-void deepSleep()
+void serverLoop()
 {
   long timeSpan = TIME_OFF - millis() - lastTime;
-  int delayLed = 1000;
   long lastTimeLed = millis();
   while (true)
   {
     if ((millis() - initTimeService) > (RECEPTION_WINDOW + timeSpan))
     {
       digitalWrite(LED,true);
+
+      //terminar servidor
+      server.end();
+
       // APAGAR WIFI
       WiFi.mode(WIFI_OFF);
 
@@ -151,12 +158,11 @@ void deepSleep()
       }
       // apagar modulo GSM
       modem.poweroff();
+
       // modo deep sleep
-      Serial.println("entrando a modo deep sleep");
-      digitalWrite(LED,false);
-      unsigned long sleepTime = SAMPLING_WINDOW - TIME_OFF - (getMinute()*S_TO_mS_FACTOR);
-      esp_sleep_enable_timer_wakeup(sleepTime * mS_TO_uS_FACTOR);
-      esp_deep_sleep_start();
+      unsigned long minuteToMicroSec = getMinute()*S_TO_mS_FACTOR;
+      unsigned long sleepTime = SAMPLING_WINDOW - TIME_OFF - minuteToMicroSec;
+      sleepEsp(sleepTime);
     }
 
     if ((millis() - lastTimeLed) > delayLed)
@@ -166,4 +172,15 @@ void deepSleep()
       lastTimeLed = millis();
     }
   }
+}
+
+void sleepEsp(unsigned long sleepTime){
+  Serial.println("entrando a modo deep sleep");
+  digitalWrite(LED,false);
+  digitalWrite(PIN_CONTROL,false);
+  Serial.println(sleepTime);
+  // sleepTime = 10000;
+  // Serial.println(sleepTime);
+  esp_sleep_enable_timer_wakeup(sleepTime * mS_TO_uS_FACTOR);
+  esp_deep_sleep_start();
 }

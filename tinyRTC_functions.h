@@ -86,8 +86,6 @@ void setupRTC()
     }
 
   }
-  stateLed = true;
-  digitalWrite(LED,stateLed);
 
   if (rtc.begin())
   {
@@ -117,4 +115,5 @@ void setupRTC()
       rtcESP.setTime(rtcOneCharge.unixtime());
     }
   }
+  Serial.println(getTimeRTC());
 }

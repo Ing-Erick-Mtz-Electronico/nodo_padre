@@ -94,7 +94,9 @@ String AlertBatery(){
 
   if(voltaje <= 10.8){
     String resl = "";
-    resl.concat("ALERTA!!\n\nNivel de bateria nodo padre: ");
+    resl.concat("ALERTA!!\n\nNodo padre: ");
+    resl.concat(ID_NODO);
+    resl.concat("\n\nNivel de bateria nodo padre: ");
     resl+= String(voltaje);
     return  resl;
   }else{
@@ -102,8 +104,18 @@ String AlertBatery(){
   }
 }
 
+void initNpkSensor()
+{
+  Serial2.begin(4800, SERIAL_8N1, RXD2, TXD2);
+  pinMode(RE, OUTPUT);
+  digitalWrite(RE, HIGH);
+}
+
 String soilData(){
-  // Modbus request for reading all values
+
+  initNpkSensor();
+
+  //Peticion Modbus para leer todos los valores
   const byte allMeasure[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08};
 
   // Recoleccion de valores
@@ -218,9 +230,6 @@ String measurement(String timeNow){
 }
 
 void setupMeasure(){
-  //Serial para el sensor SOIL
-  Serial2.begin(4800, SERIAL_8N1, RXD2, TXD2);
-  pinMode(RE, OUTPUT);
 
   Wire.begin();  //enable I2C port.
 
@@ -230,28 +239,20 @@ void setupMeasure(){
   {
     if(!bme.begin(BME_ADDRESS))
     {
-      if ((millis() - LastTimeBME) > TIME_CHECK_SESNOR)
-      {
-        Serial.println(millis());
-        noBME = false;
-      }
       Serial.println("Modulo BME no conectado");
       digitalWrite(LED,stateLed);
-      delay(300);
       stateLed = !stateLed;
+      if ((millis() - LastTimeBME) > TIME_CHECK_SESNOR)
+      {
+        noBME = false;
+      }
+      delay(300);
+
     }else
     {
       noBME = false;
+      Serial.println("BME conectado");
     }
 
-  }
-
-  stateLed = true;
-  digitalWrite(LED,stateLed);
-
-  if(!bme.begin(BME_ADDRESS)){
-    Serial.println("No hay un módulo BME conectado");
-  }else{
-    Serial.println("BME conectado");
   }
 }

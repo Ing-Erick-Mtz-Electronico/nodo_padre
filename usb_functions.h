@@ -209,21 +209,19 @@ void setupUsb()
   unsigned long lastTimeUSB = millis();
   while (!SD.begin(5))
   {
-    if (((millis() - lastTimeUSB) > CONECTION_SD_TIME))
+    if ((millis() - lastTimeUSB) > CONECTION_SD_TIME)
     {
-      digitalWrite(LED, false);
       unsigned long sleepTime = SAMPLING_WINDOW - (millis() - lastTime);
-      esp_sleep_enable_timer_wakeup(sleepTime * mS_TO_uS_FACTOR);
-      esp_deep_sleep_start();
+      sleepEsp(sleepTime);
     }
-    Serial.println("Inicialización fallida!");
+    Serial.println("Inicialización SD card fallida!");
     digitalWrite(LED, stateLed);
-    delay(2000);
     stateLed = !stateLed;
+    delay(2000);
   }
   stateLed = true;
   digitalWrite(LED, stateLed);
-  Serial.println("Inicialización lista.");
+  Serial.println("Inicialización SD card lista.");
 
   initFile(SD, PATH, init);
   Serial.println("Archivo verificado");
